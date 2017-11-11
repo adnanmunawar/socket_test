@@ -43,18 +43,26 @@ int main(int argc, char *argv[])
                  &clilen);
      if (newsockfd < 0)
           error("ERROR on accept");
-          for (int i = 0 ; i<5; i++){
-     bzero(buffer,256);
-     n = read(newsockfd,buffer,255);
-     if (n < 0) error("ERROR reading from socket");
-     printf("Length of string is: %lu\n", strlen(buffer));
-     if (strcmp(buffer, "END0 ") == 0){
-       printf("END received\n");
-     }
-     printf("Here is the message: P%sP\n",buffer);
-     n = write(newsockfd,"I got your message",18);
-     if (n < 0) error("ERROR writing to socket");
-   }
+
+     char str[4] = "END";
+
+     for (int i = 0 ; i<5; i++){
+       bzero(buffer,256);
+       n = read(newsockfd,buffer,255);
+       if (n < 0) error("ERROR reading from socket");
+
+       memcpy(str, buffer, strlen(str));
+       str[3] = 0;
+       if (strcmp(str, "END") == 0){
+         printf("END received, exiting loop \n");
+       }
+       printf("str: %s \nstrlen: %lu\n",str, strlen(str));
+       printf("Message: %s\nstrlen: %lu\n",buffer, strlen(buffer));
+       printf("-------------------------------\n");
+
+       n = write(newsockfd,"I got your message",18);
+       if (n < 0) error("ERROR writing to socket");
+      }
      close(newsockfd);
      close(sockfd);
      return 0;

@@ -1,6 +1,6 @@
 # This is a CMake example for Python
 cmake_minimum_required(VERSION 3.0)
-find_package(Boost REQUIRED)
+#find_package(Boost REQUIRED)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -14,6 +14,5 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # else()
 #         message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 # endif()
-FILE(GLOB_RECURSE HDRS "include/*.h")
 add_executable(server src/server.c ${HDRS})
 add_executable(client src/client.c ${HDRS})
