@@ -9,11 +9,12 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <stdbool.h>
-
+#include <sys/poll.h>
 
 char buffer[256];
 int num_clients = 0;
 int client_list[5];
+struct pollfd client_fds[4];
 
 void error(const char *msg)
 {
@@ -21,30 +22,29 @@ void error(const char *msg)
     exit(1);
 }
 
-bool SetSocketBlockingEnabled(int fd, bool blocking)
+bool SetSocketBlockingEnabled(const int *fd, bool blocking)
 {
    if (fd < 0) return false;
-   int flags = fcntl(fd, F_GETFL, 0);
+   int flags = fcntl(*fd, F_GETFL, 0);
    if (flags < 0) return false;
    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-   return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
+   return (fcntl(*fd, F_SETFL, flags) == 0) ? true : false;
+//    return (fcntl(*fd, F_SETFL, O_NONBLOCK));
 }
 
 int listen_for_new_clients(const int* sock_fd, const struct sockaddr_in *cli_addr){
     printf("Listening for new client\n");
-    if (listen(*sock_fd, 5) == 0){
-        socklen_t len = sizeof(*cli_addr);
-        int client_fd = accept(*sock_fd,(struct sockaddr*) cli_addr, &len);
-        if (client_fd < 0){
-            error("ERROR on accept");
-            return -1;
-        }
-        else{
-            printf("New client registered \n");
-            client_list[num_clients] = client_fd;
-            num_clients++;
-            return client_fd;
-        }
+    socklen_t len = sizeof(*cli_addr);
+    int client_fd = accept(*sock_fd,(struct sockaddr*) cli_addr, &len);
+    printf("Client_fd %d\n", client_fd);
+    if (client_fd < 0){
+        printf("No new clients for now\n");
+    }
+    else{
+        printf("New client registered \n");
+        client_list[num_clients] = client_fd;
+        num_clients++;
+        return 1;
     }
     return -1;
 }
@@ -55,7 +55,7 @@ void send_and_receive_data(const int client_fd){
     for (int i = 0 ; i<10; i++){
       bzero(buffer,256);
       int n = read(client_fd,buffer,255);
-      if (n < 0) error("ERROR reading from socket");
+//      if (n < 0) error("ERROR reading from socket");
 
       memcpy(str, buffer, strlen(str));
       str[3] = 0;
@@ -82,9 +82,11 @@ int main(int argc, char *argv[])
          exit(1);
      }
      sockfd = socket(AF_INET, SOCK_STREAM, 0);
-     //sockfd = SetSocketBlockingEnabled(sockfd, true);
-     if (sockfd < 0)
+     bool svalid = SetSocketBlockingEnabled(&sockfd, false);
+     if (!svalid){
         error("ERROR opening socket");
+     }
+
      bzero((char *) &serv_addr, sizeof(serv_addr));
      portno = atoi(argv[1]);
      serv_addr.sin_family = AF_INET;
@@ -93,16 +95,26 @@ int main(int argc, char *argv[])
      if (bind(sockfd, (struct sockaddr *) &serv_addr,
               sizeof(serv_addr)) < 0)
               error("ERROR on binding");
+     if (listen(sockfd, 5) == 0){
 
-     listen_for_new_clients(&sockfd, &cli_addr);
-
-     for (int cnt = 0 ; cnt < 5 ; cnt++){
-         for (int i = 0 ; i<num_clients ; i++){
-             send_and_receive_data(client_list[i]);
-         }
+     }
+     else{
+         printf("Failed to Listen \n");
      }
 
-     for (int i = 0 ; i<num_clients ; i++){
+     for (int j = 0 ; j < 100 ; j++){
+         listen_for_new_clients(&sockfd, &cli_addr);
+         printf("No of clients %d\n", num_clients);
+         if (num_clients > 0){
+             for (int i = 0 ; i<=num_clients ; i++){
+                 printf("Sending and receiving");
+                 send_and_receive_data(client_list[i]);
+             }
+         }
+         usleep(1000000);
+     }
+
+     for (int i = 0 ; i<=num_clients ; i++){
          printf("Closing client num :%d, id: %d", i, client_list[i]);
          close(client_list[i]);
      }
