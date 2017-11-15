@@ -7,8 +7,10 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
+#include <unistd.h>
 
-#define SERVER_PORT  8080
+#define SERVER_PORT  80
 
 #define TRUE             1
 #define FALSE            0
@@ -19,11 +21,34 @@ int main (int argc, char *argv[])
   int    listen_sd = -1, new_sd = -1;
   int    desc_ready, end_server = FALSE, compress_array = FALSE;
   int    close_conn;
-  char   buffer[80];
+  char   buffer[512];
+  char   file_buffer[512], response_buffer[512];
   struct sockaddr_in   addr, hints;
   int    timeout;
   struct pollfd fds[200];
   int    nfds = 1, current_size = 0, i, j;
+  FILE *file_ptr;
+  bool _file_set = false, _response_set = false;
+
+  file_ptr = fopen("first.html","r");
+  if(!file_ptr){
+      printf("Error opening file \n");
+      return -1;
+  }
+  else{
+      _file_set = true;
+      memset(file_buffer, 0, sizeof(file_buffer));
+      size_t newLen = fread(file_buffer, sizeof(char), sizeof(file_buffer), file_ptr);
+        if ( ferror( file_ptr ) != 0 ) {
+            fputs("Error reading file", stderr);
+        } else {
+            file_buffer[newLen++] = '\n'; /* Just to be safe. */
+        }
+
+        fclose(file_ptr);
+        printf("File Contents are : \n %s", file_buffer);
+  }
+
 
   listen_sd = socket(AF_INET, SOCK_STREAM, 0);
   if (listen_sd < 0)
@@ -152,8 +177,13 @@ int main (int argc, char *argv[])
 
           len = rc;
           printf("  %d bytes received\n", len);
-
-          rc = send(fds[i].fd, buffer, len, 0);
+          printf("Message: %s", buffer);
+          char resp[] = "HTTP/1.1 200 OK\r\n"
+                        "Content-Length: 100\r\n"
+                        "\r\n";
+          rc = send(fds[i].fd, resp, strlen(resp), 0);
+          //usleep(10000);
+          rc = send(fds[i].fd, file_buffer, strlen(file_buffer), 0);
           if (rc < 0)
           {
             perror("  send() failed");
